@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
+  <title>LofiNest — Lo-Fi Focus Timer</title>
+  <meta name="description" content="A calm Pomodoro timer, ambient sound mixer, and minimalist task list." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['ui-rounded', 'Nunito', 'system-ui', 'sans-serif'] },
+          boxShadow: { glow: '0 24px 80px rgba(0,0,0,.32)' }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root { color-scheme: dark; --accent: #a5b4fc; --accent-rgb: 165,180,252; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; overflow-x: hidden; background: #0b1020; }
+    button, input { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+
+    .scene { position: fixed; inset: 0; z-index: -3; overflow: hidden; transition: background-color 1s ease, filter 1s ease; }
+    .scene::before, .scene::after { content: ""; position: absolute; inset: -15%; transition: opacity 1s ease, background 1s ease; }
+    .scene-changing { animation: atmosphereShift .8s ease both; }
+    .scene-rain { background: radial-gradient(circle at 76% 18%, rgba(73,95,170,.42), transparent 24%), radial-gradient(circle at 18% 72%, rgba(244,63,94,.12), transparent 20%), linear-gradient(155deg, #050914 0%, #0e1730 54%, #172341 100%); }
+    .scene-rain::before { opacity:.42; background-image:repeating-linear-gradient(108deg, transparent 0 16px, rgba(188,220,255,.3) 17px, transparent 18px 31px); background-size:160% 160%; animation:rain 1s linear infinite; filter:blur(.2px); }
+    .scene-rain::after { inset:46% -10% -20%; opacity:.55; background:linear-gradient(90deg, transparent 0 7%, rgba(236,72,153,.18) 8% 10%, transparent 11% 25%, rgba(56,189,248,.18) 26% 29%, transparent 30% 62%, rgba(129,140,248,.22) 63% 66%, transparent 67%), radial-gradient(ellipse at 65% 70%, rgba(79,70,229,.34), transparent 55%); filter:blur(16px); animation:neonPulse 5s ease-in-out infinite; }
+    .scene-cafe { background:radial-gradient(circle at 20% 20%, rgba(216,231,164,.25), transparent 23%), radial-gradient(circle at 78% 72%, rgba(184,133,77,.22), transparent 28%), linear-gradient(145deg, #233128 0%, #53694a 48%, #9a7955 100%); }
+    .scene-cafe::before { inset:-10%; opacity:.5; background-image:radial-gradient(circle, rgba(255,246,207,.78) 0 1px, transparent 2px), radial-gradient(circle, rgba(226,240,190,.55) 0 1.5px, transparent 2.5px); background-size:82px 94px, 137px 153px; background-position:10px 20px, 58px 76px; animation:dustFloat 14s linear infinite; }
+    .scene-cafe::after { inset:5% -20% -20% 40%; opacity:.35; background:radial-gradient(ellipse at 30% 82%, transparent 0 28px, rgba(245,255,224,.38) 30px 32px, transparent 34px), radial-gradient(ellipse at 52% 70%, transparent 0 40px, rgba(255,248,220,.28) 42px 44px, transparent 46px), radial-gradient(ellipse at 72% 88%, rgba(236,211,163,.26), transparent 48%); filter:blur(5px); animation:steamRise 9s ease-in-out infinite; }
+    .scene-sunset { background:radial-gradient(circle at 74% 21%, #ffe8a3 0 4%, rgba(255,205,132,.45) 5%, transparent 19%), linear-gradient(165deg, #3b1e58 0%, #9a4169 40%, #ed7658 69%, #232244 100%); }
+    .scene-sunset::before { inset:0 -35%; opacity:.42; background:radial-gradient(ellipse at 18% 24%, rgba(255,235,218,.55) 0 5%, transparent 6%), radial-gradient(ellipse at 45% 42%, rgba(255,218,207,.38) 0 7%, transparent 8%), radial-gradient(ellipse at 78% 30%, rgba(255,239,221,.45) 0 6%, transparent 7%); filter:blur(7px); animation:cloudDrift 20s linear infinite; }
+    .scene-sunset::after { inset:58% -5% -20%; opacity:.82; background:linear-gradient(90deg, transparent 0 7%, #18182f 7% 14%, transparent 14% 18%, #1d1b35 18% 31%, transparent 31% 53%, #18182f 53% 68%, transparent 68%), linear-gradient(transparent, #121427); clip-path:polygon(0 56%, 8% 56%, 8% 35%, 14% 35%, 14% 55%, 21% 55%, 21% 18%, 31% 18%, 31% 52%, 52% 52%, 52% 29%, 68% 29%, 68% 54%, 100% 54%, 100% 100%, 0 100%); animation:rooftopDrift 10s ease-in-out infinite alternate; }
+    .scene-forest { background:radial-gradient(circle at 72% 18%, rgba(190,242,178,.18), transparent 24%), radial-gradient(circle at 22% 78%, rgba(251,146,60,.14), transparent 19%), linear-gradient(150deg, #06130f, #15392d 54%, #0b2019); }
+    .scene-forest::before { inset:-5%; opacity:.7; background-image:radial-gradient(circle, #ffd28a 0 1px, transparent 2px), radial-gradient(circle, #fb923c 0 1.5px, transparent 2.5px), radial-gradient(circle, rgba(254,215,170,.8) 0 1px, transparent 2px); background-size:100px 140px, 165px 210px, 230px 190px; background-position:20px 110px, 70px 40px, 10px 80px; animation:embers 9s linear infinite; }
+    .scene-forest::after { inset:20% -8% -10%; opacity:.72; background:linear-gradient(90deg, transparent 0 8%, #040e0a 8% 12%, transparent 12% 22%, #07150f 22% 29%, transparent 29% 42%, #040e0a 42% 47%, transparent 47% 70%, #06130e 70% 77%, transparent 77%), linear-gradient(transparent, #040e0a); clip-path:polygon(0 20%, 8% 20%, 10% 0, 12% 20%, 23% 20%, 25% 2%, 29% 20%, 43% 20%, 45% 0, 48% 20%, 71% 20%, 73% 4%, 77% 20%, 100% 20%, 100% 100%, 0 100%); animation:forestSway 8s ease-in-out infinite alternate; transform-origin:bottom; }
+
+    .noise { position: fixed; inset: 0; z-index: -1; pointer-events:none; opacity:.06; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.7'/%3E%3C/svg%3E"); }
+    .glass { background:linear-gradient(145deg, rgba(var(--accent-rgb),.09), rgba(255,255,255,.055)); border:1px solid rgba(var(--accent-rgb),.25); box-shadow:0 28px 80px rgba(0,0,0,.28), 0 0 70px rgba(var(--accent-rgb),.08), inset 0 1px 0 rgba(255,255,255,.1); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); transition:border-color .8s ease, box-shadow .8s ease, background .8s ease; }
+    .soft-panel { background:rgba(var(--accent-rgb),.045); border:1px solid rgba(var(--accent-rgb),.13); transition:background .6s ease, border-color .6s ease; }
+    .mode-btn { transition: all .25s ease; }
+    .mode-btn.active { background: rgba(var(--accent-rgb),.18); color: white; box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),.3); }
+    .progress-track { stroke: rgba(255,255,255,.1); }
+    .progress-value { stroke: var(--accent); filter: drop-shadow(0 0 8px rgba(var(--accent-rgb),.5)); transition: stroke-dashoffset .6s linear, stroke .6s ease; }
+    .main-action { background: var(--accent); color: #111827; box-shadow: 0 10px 28px rgba(var(--accent-rgb),.28); transition: transform .2s, box-shadow .2s, background .5s; }
+    .main-action:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(var(--accent-rgb),.4); }
+    .main-action:active { transform: scale(.96); }
+    .volume { appearance:none; width:100%; height:4px; border-radius:99px; outline:0; background: linear-gradient(to right, var(--accent) 0 var(--fill, 0%), rgba(255,255,255,.13) var(--fill, 0%) 100%); }
+    .volume::-webkit-slider-thumb { appearance:none; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.35); cursor:pointer; }
+    .volume::-moz-range-thumb { width:16px; height:16px; border:0; border-radius:50%; background:#fff; cursor:pointer; }
+    .task-check { appearance:none; width:18px; height:18px; border:1.5px solid rgba(255,255,255,.35); border-radius:6px; display:grid; place-items:center; cursor:pointer; flex:none; }
+    .task-check:checked { background:var(--accent); border-color:var(--accent); }
+    .task-check:checked::after { content:'✓'; color:#172033; font-size:12px; font-weight:900; }
+    .task-done .task-text { text-decoration:line-through; opacity:.42; }
+    .atmosphere-option { color:rgba(255,255,255,.42); transition:all .3s ease; }
+    .atmosphere-option:hover { color:rgba(255,255,255,.8); background:rgba(255,255,255,.05); }
+    .atmosphere-option.active { color:white; background:rgba(var(--accent-rgb),.15); box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.25); }
+    .sound-icon { transition: .25s ease; }
+    .sound-live .sound-icon { color: var(--accent); background:rgba(var(--accent-rgb),.16); transform:scale(1.04); }
+    .sound-live .sound-dot { opacity:1; animation:pulse 1.4s ease-in-out infinite; }
+    .scrollbar::-webkit-scrollbar { width:4px; }
+    .scrollbar::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:99px; }
+    .music-drawer { position:fixed; left:16px; bottom:16px; z-index:50; width:min(370px, calc(100vw - 32px)); background:linear-gradient(145deg, rgba(25,31,50,.88), rgba(12,17,32,.72)); border:1px solid rgba(var(--accent-rgb),.24); border-radius:22px; box-shadow:0 20px 60px rgba(0,0,0,.38), 0 0 35px rgba(var(--accent-rgb),.07), inset 0 1px 0 rgba(255,255,255,.1); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); overflow:hidden; transition:width .35s ease, border-radius .35s ease, border-color .8s ease, box-shadow .8s ease; }
+    .drawer-body { max-height:520px; opacity:1; padding:0 14px 14px; overflow:hidden; transition:max-height .4s ease, opacity .25s ease, padding .4s ease; }
+    .music-drawer.is-collapsed { width:190px; border-radius:999px; }
+    .music-drawer.is-collapsed .drawer-body { max-height:0; opacity:0; padding-top:0; padding-bottom:0; }
+    .music-drawer.is-collapsed .drawer-chevron { transform:rotate(180deg); }
+    .provider-btn { color:rgba(255,255,255,.42); transition:all .25s ease; }
+    .provider-btn.active { color:white; background:rgba(var(--accent-rgb),.18); box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.25); }
+    .drawer-chevron { transition:transform .3s ease; }
+
+    @keyframes rain { to { transform: translate(-6%, 16%); } }
+    @keyframes atmosphereShift { 0% { opacity:.58; filter:blur(12px) saturate(.7); transform:scale(1.025); } 100% { opacity:1; filter:blur(0) saturate(1); transform:scale(1); } }
+    @keyframes neonPulse { 50% { opacity:.8; transform:scale(1.05); } }
+    @keyframes dustFloat { 50% { transform:translate(32px,-42px); opacity:.75; } 100% { transform:translate(-18px,-88px); } }
+    @keyframes steamRise { 50% { transform:translate(-24px,-52px) scale(1.08); opacity:.55; } 100% { transform:translate(18px,-95px) scale(.95); opacity:.18; } }
+    @keyframes cloudDrift { to { transform:translateX(24%); } }
+    @keyframes rooftopDrift { to { transform:translateX(1.5%) scaleY(1.02); } }
+    @keyframes embers { 50% { transform:translate(24px,-75px); opacity:.85; } 100% { transform:translate(-16px,-150px); opacity:.15; } }
+    @keyframes forestSway { to { transform:skewX(.8deg) scale(1.02); } }
+    @keyframes pulse { 50% { transform:scale(1.7); opacity:.35; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body class="font-sans text-white antialiased selection:bg-indigo-300/30">
+  <div id="scene" class="scene scene-rain" aria-hidden="true"></div>
+  <div class="noise" aria-hidden="true"></div>
+
+  <main class="min-h-screen px-4 py-5 sm:px-6 sm:py-8 lg:grid lg:place-items-center">
+    <section class="glass mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem]">
+      <header class="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-6 py-5 sm:px-8">
+        <div class="flex items-center gap-3">
+          <div class="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 shadow-inner">
+            <svg viewBox="0 0 40 40" class="h-7 w-7" fill="none" aria-hidden="true"><path d="M9 25c4-1 5-5 7-9 2 8 4 12 8 12s6-5 7-10" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/><circle cx="10" cy="25" r="2.5" fill="white"/><circle cx="31" cy="18" r="2.5" fill="white"/></svg>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight">LofiNest</h1>
+            <p class="text-[11px] uppercase tracking-[.24em] text-white/45">focus at your pace</p>
+          </div>
+        </div>
+
+        <div class="min-w-0 max-w-full">
+          <p class="mb-1.5 text-[9px] font-bold uppercase tracking-[.22em] text-white/35">Atmosphere selector</p>
+          <div class="scrollbar flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-black/10 p-1" role="group" aria-label="Atmosphere selector">
+            <button class="atmosphere-option active flex min-w-max items-center gap-2 rounded-xl px-2.5 py-2 text-left" data-theme="rain" aria-label="Rainy Midnight Tokyo" aria-pressed="true">
+              <span class="h-5 w-5 flex-none rounded-lg bg-gradient-to-br from-slate-800 via-indigo-500 to-pink-400"></span><span class="text-[10px] font-semibold leading-tight">Rainy Midnight<br>Tokyo</span>
+            </button>
+            <button class="atmosphere-option flex min-w-max items-center gap-2 rounded-xl px-2.5 py-2 text-left" data-theme="cafe" aria-label="Warm Matcha Cafe" aria-pressed="false">
+              <span class="h-5 w-5 flex-none rounded-lg bg-gradient-to-br from-emerald-900 via-lime-500 to-amber-200"></span><span class="text-[10px] font-semibold leading-tight">Warm Matcha<br>Cafe</span>
+            </button>
+            <button class="atmosphere-option flex min-w-max items-center gap-2 rounded-xl px-2.5 py-2 text-left" data-theme="sunset" aria-label="Sunset Rooftop" aria-pressed="false">
+              <span class="h-5 w-5 flex-none rounded-lg bg-gradient-to-br from-violet-800 via-rose-500 to-orange-300"></span><span class="text-[10px] font-semibold leading-tight">Sunset<br>Rooftop</span>
+            </button>
+            <button class="atmosphere-option flex min-w-max items-center gap-2 rounded-xl px-2.5 py-2 text-left" data-theme="forest" aria-label="Cozy Forest Cabin" aria-pressed="false">
+              <span class="h-5 w-5 flex-none rounded-lg bg-gradient-to-br from-emerald-950 via-emerald-500 to-orange-400"></span><span class="text-[10px] font-semibold leading-tight">Cozy Forest<br>Cabin</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="grid lg:grid-cols-[1.12fr_.88fr]">
+        <section class="flex flex-col items-center justify-center border-b border-white/10 px-5 py-8 sm:px-10 lg:border-b-0 lg:border-r lg:py-10" aria-labelledby="timerHeading">
+          <div class="mb-6 flex rounded-full border border-white/10 bg-black/10 p-1" role="group" aria-label="Timer mode">
+            <button class="mode-btn active rounded-full px-4 py-2 text-xs font-semibold text-white/55" data-mode="focus">Focus <span class="ml-1 opacity-50">25</span></button>
+            <button class="mode-btn rounded-full px-4 py-2 text-xs font-semibold text-white/55" data-mode="short">Short <span class="ml-1 opacity-50">5</span></button>
+            <button class="mode-btn rounded-full px-4 py-2 text-xs font-semibold text-white/55" data-mode="long">Long <span class="ml-1 opacity-50">15</span></button>
+          </div>
+
+          <h2 id="timerHeading" class="sr-only">Pomodoro timer</h2>
+          <div class="relative grid h-64 w-64 place-items-center sm:h-72 sm:w-72">
+            <svg class="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 280 280" aria-hidden="true">
+              <circle class="progress-track" cx="140" cy="140" r="124" fill="none" stroke-width="6" />
+              <circle id="progressRing" class="progress-value" cx="140" cy="140" r="124" fill="none" stroke-width="7" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="0" />
+            </svg>
+            <div class="text-center">
+              <p id="modeCaption" class="mb-2 text-[11px] font-bold uppercase tracking-[.3em] text-white/40">Deep focus</p>
+              <p id="timeDisplay" class="tabular-nums text-6xl font-extralight tracking-[-.07em] sm:text-7xl" aria-live="polite">25:00</p>
+              <p id="timerStatus" class="mt-3 text-xs text-white/45">Ready when you are</p>
+            </div>
+          </div>
+
+          <div class="mt-6 flex items-center gap-4">
+            <button id="resetTimer" class="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-white/55 transition hover:bg-white/10 hover:text-white" aria-label="Reset timer" title="Reset timer">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6M5.2 15a7 7 0 1 0 .7-7.7L4 10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button id="startTimer" class="main-action flex h-14 min-w-36 items-center justify-center gap-2 rounded-full px-7 text-sm font-extrabold tracking-wide">
+              <svg id="playIcon" viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <span id="startLabel">Start focus</span>
+            </button>
+            <button id="skipTimer" class="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-white/55 transition hover:bg-white/10 hover:text-white" aria-label="Skip to next session" title="Skip to next session">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 5 9 7-9 7V5Zm11 0v14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+
+          <div class="mt-8 flex items-center gap-2 text-xs text-white/35">
+            <span id="sessionDots" class="flex gap-1.5" aria-label="0 focus sessions completed">
+              <i class="h-1.5 w-4 rounded-full bg-white/15"></i><i class="h-1.5 w-4 rounded-full bg-white/15"></i><i class="h-1.5 w-4 rounded-full bg-white/15"></i><i class="h-1.5 w-4 rounded-full bg-white/15"></i>
+            </span>
+            <span class="ml-2"><b id="sessionCount" class="font-semibold text-white/70">0</b> sessions today</span>
+          </div>
+        </section>
+
+        <div class="grid min-h-[520px] sm:grid-cols-2 lg:grid-cols-1 lg:grid-rows-[1.08fr_.92fr]">
+          <section class="border-b border-white/10 p-6 sm:border-b-0 sm:border-r lg:border-b lg:border-r-0" aria-labelledby="soundHeading">
+            <div class="mb-5 flex items-center justify-between">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-[.25em] text-white/35">Soundscape</p>
+                <h2 id="soundHeading" class="mt-1 text-lg font-semibold">Set the atmosphere</h2>
+              </div>
+              <button id="toggleAudio" class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/10 hover:text-white">
+                <span id="audioDot" class="h-1.5 w-1.5 rounded-full bg-white/35"></span><span id="audioLabel">Start audio</span>
+              </button>
+            </div>
+            <div id="mixer" class="grid gap-x-5 gap-y-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
+              <div class="sound-row soft-panel rounded-2xl p-3" data-sound="rain">
+                <div class="mb-3 flex items-center gap-3"><span class="sound-icon grid h-8 w-8 place-items-center rounded-xl bg-white/5">☂</span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Rain</p><p class="text-[10px] text-white/35">window drizzle</p></div><span class="sound-dot h-1.5 w-1.5 rounded-full bg-[var(--accent)] opacity-0"></span></div>
+                <input class="volume" type="range" min="0" max="100" value="34" aria-label="Rain volume" />
+              </div>
+              <div class="sound-row soft-panel rounded-2xl p-3" data-sound="fire">
+                <div class="mb-3 flex items-center gap-3"><span class="sound-icon grid h-8 w-8 place-items-center rounded-xl bg-white/5">♨</span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Fireplace</p><p class="text-[10px] text-white/35">warm crackle</p></div><span class="sound-dot h-1.5 w-1.5 rounded-full bg-[var(--accent)] opacity-0"></span></div>
+                <input class="volume" type="range" min="0" max="100" value="22" aria-label="Fireplace volume" />
+              </div>
+              <div class="sound-row soft-panel rounded-2xl p-3" data-sound="cafe">
+                <div class="mb-3 flex items-center gap-3"><span class="sound-icon grid h-8 w-8 place-items-center rounded-xl bg-white/5">☕</span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Cafe Hum</p><p class="text-[10px] text-white/35">distant chatter</p></div><span class="sound-dot h-1.5 w-1.5 rounded-full bg-[var(--accent)] opacity-0"></span></div>
+                <input class="volume" type="range" min="0" max="100" value="0" aria-label="Cafe hum volume" />
+              </div>
+              <div class="sound-row soft-panel rounded-2xl p-3" data-sound="wind">
+                <div class="mb-3 flex items-center gap-3"><span class="sound-icon grid h-8 w-8 place-items-center rounded-xl bg-white/5">〰</span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Wind</p><p class="text-[10px] text-white/35">soft through pines</p></div><span class="sound-dot h-1.5 w-1.5 rounded-full bg-[var(--accent)] opacity-0"></span></div>
+                <input class="volume" type="range" min="0" max="100" value="0" aria-label="Wind volume" />
+              </div>
+            </div>
+
+          </section>
+
+          <section class="flex min-h-0 flex-col p-6" aria-labelledby="taskHeading">
+            <div class="mb-4 flex items-end justify-between">
+              <div><p class="text-[10px] font-bold uppercase tracking-[.25em] text-white/35">Today</p><h2 id="taskHeading" class="mt-1 text-lg font-semibold">Quiet intentions</h2></div>
+              <p id="taskCount" class="text-xs text-white/35">0 tasks</p>
+            </div>
+            <form id="taskForm" class="mb-3 flex gap-2">
+              <label class="sr-only" for="taskInput">Add a task</label>
+              <input id="taskInput" maxlength="100" autocomplete="off" placeholder="What needs your attention?" class="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-black/15" />
+              <button class="grid w-11 place-items-center rounded-xl bg-white/10 text-xl text-white/65 transition hover:bg-white/15 hover:text-white" aria-label="Add task">+</button>
+            </form>
+            <div id="taskList" class="scrollbar max-h-40 flex-1 space-y-1 overflow-y-auto pr-1" aria-live="polite"></div>
+            <p id="emptyTasks" class="my-auto py-5 text-center text-xs leading-5 text-white/30">Your mind is clear.<br />Add one small thing to begin.</p>
+            <button id="clearDone" class="mt-2 hidden self-start text-[11px] text-white/35 transition hover:text-white/70">Clear completed</button>
+          </section>
+        </div>
+      </div>
+    </section>
+    <p class="mx-auto mt-4 max-w-6xl text-center text-[10px] uppercase tracking-[.18em] text-white/25">Headphones on · distractions off</p>
+  </main>
+
+  <aside id="musicDrawer" class="music-drawer" aria-label="Lo-Fi Beats music drawer">
+    <button id="drawerToggle" class="flex w-full items-center gap-3 px-4 py-3.5 text-left" aria-expanded="true" aria-controls="drawerBody">
+      <span class="grid h-8 w-8 flex-none place-items-center rounded-xl bg-white/10 text-sm" aria-hidden="true">♫</span>
+      <span class="min-w-0 flex-1">
+        <span class="block text-sm font-bold leading-tight">Lo-Fi Beats</span>
+        <span id="musicStatus" class="block truncate text-[10px] text-white/40">Choose a source</span>
+      </span>
+      <svg class="drawer-chevron h-4 w-4 flex-none text-white/45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div id="drawerBody" class="drawer-body">
+      <div class="mb-3 grid grid-cols-2 rounded-xl border border-white/10 bg-black/15 p-1" role="group" aria-label="Music provider">
+        <button type="button" class="provider-btn active rounded-lg py-2 text-[11px] font-bold" data-provider="youtube">YouTube</button>
+        <button type="button" class="provider-btn rounded-lg py-2 text-[11px] font-bold" data-provider="spotify">Spotify</button>
+      </div>
+
+      <form id="musicForm" class="flex gap-2">
+        <label class="sr-only" for="musicUrl">Music URL</label>
+        <input id="musicUrl" type="url" inputmode="url" autocomplete="off" placeholder="Paste a YouTube video or stream…" class="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/15 px-3 py-2.5 text-xs text-white outline-none placeholder:text-white/25 focus:border-white/25" />
+        <button class="rounded-xl px-4 text-[11px] font-extrabold text-slate-900 transition hover:-translate-y-0.5" style="background:var(--accent)">Load</button>
+      </form>
+      <p id="musicError" class="mt-2 hidden text-[10px] leading-4 text-rose-200" role="alert"></p>
+
+      <div id="musicPlayerWrap" class="mt-3 hidden overflow-hidden rounded-xl border border-white/10 bg-black/30">
+        <iframe id="musicPlayer" class="block w-full" title="Lo-Fi Beats player" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+      </div>
+      <div id="loadedActions" class="mt-2 hidden items-center justify-between text-[10px] text-white/35">
+        <span id="loadedProvider">YouTube player loaded</span>
+        <button id="unloadMusic" type="button" class="transition hover:text-white">Remove player</button>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    (() => {
+      const $ = (s, root = document) => root.querySelector(s);
+      const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+      const durations = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
+      const captions = { focus: 'Deep focus', short: 'Quick reset', long: 'Rest & restore' };
+      let mode = 'focus', remaining = durations.focus, running = false, endAt = 0, timerId = null;
+      let sessions = Number(localStorage.getItem('drift-sessions') || 0);
+
+      function formatTime(seconds) {
+        const m = Math.floor(seconds / 60), s = seconds % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+      function renderTimer() {
+        $('#timeDisplay').textContent = formatTime(remaining);
+        document.title = `${formatTime(remaining)} — LofiNest`;
+        $('#progressRing').style.strokeDashoffset = String(100 - (remaining / durations[mode]) * 100);
+      }
+      function setRunning(next) {
+        running = next;
+        $('#playIcon').innerHTML = running ? '<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+        $('#startLabel').textContent = running ? 'Pause' : (remaining < durations[mode] ? 'Continue' : mode === 'focus' ? 'Start focus' : 'Start break');
+        $('#timerStatus').textContent = running ? (mode === 'focus' ? 'Stay with this moment' : 'Let your thoughts wander') : (remaining < durations[mode] ? 'Paused — no rush' : 'Ready when you are');
+      }
+      async function startPause() {
+        if (running) {
+          clearInterval(timerId); remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+          setRunning(false); setAmbientAudio(false); renderTimer(); return;
+        }
+        if (remaining <= 0) remaining = durations[mode];
+        await setAmbientAudio(true);
+        endAt = Date.now() + remaining * 1000; setRunning(true);
+        timerId = setInterval(tick, 250); tick();
+      }
+      function tick() {
+        remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000)); renderTimer();
+        if (remaining === 0) {
+          clearInterval(timerId); setRunning(false); setAmbientAudio(false); chime();
+          if (mode === 'focus') { sessions++; localStorage.setItem('drift-sessions', sessions); renderSessions(); }
+          $('#timerStatus').textContent = mode === 'focus' ? 'Beautiful work. Time to breathe.' : 'Break complete. Feeling lighter?';
+        }
+      }
+      function setMode(next) {
+        clearInterval(timerId); mode = next; remaining = durations[mode]; setRunning(false); setAmbientAudio(false);
+        $$('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+        $('#modeCaption').textContent = captions[mode]; renderTimer();
+      }
+      function renderSessions() {
+        $('#sessionCount').textContent = sessions;
+        $('#sessionDots').setAttribute('aria-label', `${sessions} focus sessions completed`);
+        $$('#sessionDots i').forEach((dot, i) => { dot.style.background = i < sessions % 4 || (sessions > 0 && sessions % 4 === 0) ? 'var(--accent)' : 'rgba(255,255,255,.15)'; });
+      }
+      $$('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+      $('#startTimer').addEventListener('click', startPause);
+      $('#resetTimer').addEventListener('click', () => setMode(mode));
+      $('#skipTimer').addEventListener('click', () => setMode(mode === 'focus' ? (sessions % 4 === 3 ? 'long' : 'short') : 'focus'));
+      renderTimer(); renderSessions();
+
+      const atmospherePresets = {
+        rain: { accent: '#a5b4fc', rgb: '165,180,252', mix: { rain: 72, fire: 6, cafe: 10, wind: 18 } },
+        cafe: { accent: '#d9f99d', rgb: '217,249,157', mix: { rain: 12, fire: 4, cafe: 68, wind: 0 } },
+        sunset: { accent: '#fdba74', rgb: '253,186,116', mix: { rain: 0, fire: 10, cafe: 28, wind: 46 } },
+        forest: { accent: '#86efac', rgb: '134,239,172', mix: { rain: 20, fire: 58, cafe: 0, wind: 34 } }
+      };
+      let atmosphereTransitionTimer;
+      function setTheme(theme) {
+        if (!atmospherePresets[theme]) theme = 'rain';
+        const preset = atmospherePresets[theme], scene = $('#scene');
+        scene.className = `scene scene-${theme}`;
+        void scene.offsetWidth;
+        scene.classList.add('scene-changing');
+        clearTimeout(atmosphereTransitionTimer);
+        atmosphereTransitionTimer = setTimeout(() => scene.classList.remove('scene-changing'), 850);
+        $$('.atmosphere-option').forEach(button => {
+          const active = button.dataset.theme === theme;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-pressed', String(active));
+        });
+        document.documentElement.style.setProperty('--accent', preset.accent);
+        document.documentElement.style.setProperty('--accent-rgb', preset.rgb);
+        $$('.sound-row').forEach(row => {
+          const slider = $('.volume', row), value = preset.mix[row.dataset.sound];
+          slider.value = value;
+          slider.style.setProperty('--fill', `${value}%`);
+          slider.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        localStorage.setItem('drift-theme', theme);
+      }
+      $$('.atmosphere-option').forEach(button => button.addEventListener('click', () => setTheme(button.dataset.theme)));
+      setTheme(localStorage.getItem('drift-theme') || 'rain');
+
+      let tasks = [];
+      try { tasks = JSON.parse(localStorage.getItem('drift-tasks') || '[]'); } catch (_) { tasks = []; }
+      function saveTasks() { localStorage.setItem('drift-tasks', JSON.stringify(tasks)); }
+      function renderTasks() {
+        const list = $('#taskList'); list.innerHTML = '';
+        tasks.forEach(task => {
+          const row = document.createElement('div');
+          row.className = `group flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-white/5 ${task.done ? 'task-done' : ''}`;
+          const check = document.createElement('input'); check.type = 'checkbox'; check.checked = task.done; check.className = 'task-check'; check.setAttribute('aria-label', `Mark ${task.text} complete`);
+          check.addEventListener('change', () => { task.done = check.checked; saveTasks(); renderTasks(); });
+          const text = document.createElement('span'); text.className = 'task-text min-w-0 flex-1 truncate text-sm text-white/75'; text.textContent = task.text;
+          const del = document.createElement('button'); del.className = 'px-2 text-white/0 transition group-hover:text-white/35 hover:!text-white'; del.textContent = '×'; del.setAttribute('aria-label', `Delete ${task.text}`);
+          del.addEventListener('click', () => { tasks = tasks.filter(t => t.id !== task.id); saveTasks(); renderTasks(); });
+          row.append(check, text, del); list.append(row);
+        });
+        $('#emptyTasks').classList.toggle('hidden', tasks.length > 0);
+        $('#taskCount').textContent = `${tasks.filter(t => !t.done).length} open`;
+        $('#clearDone').classList.toggle('hidden', !tasks.some(t => t.done));
+      }
+      $('#taskForm').addEventListener('submit', e => {
+        e.preventDefault(); const input = $('#taskInput'), text = input.value.trim(); if (!text) return;
+        tasks.unshift({ id: Date.now(), text, done: false }); input.value = ''; saveTasks(); renderTasks();
+      });
+      $('#clearDone').addEventListener('click', () => { tasks = tasks.filter(t => !t.done); saveTasks(); renderTasks(); });
+      renderTasks();
+
+      let audioCtx = null, master = null, audioOn = false, sounds = {};
+      function noiseBuffer(seconds = 4) {
+        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * seconds, audioCtx.sampleRate), data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        return buffer;
+      }
+      function loopNoise(filterType, freq, q = .7) {
+        const source = audioCtx.createBufferSource(), filter = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
+        source.buffer = noiseBuffer(); source.loop = true; filter.type = filterType; filter.frequency.value = freq; filter.Q.value = q; gain.gain.value = 0;
+        source.connect(filter).connect(gain).connect(master); source.start(); return { source, filter, gain };
+      }
+      function initAudio() {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)(); master = audioCtx.createGain(); master.gain.value = .65; master.connect(audioCtx.destination);
+        sounds.rain = loopNoise('highpass', 1700, .35);
+        sounds.fire = loopNoise('lowpass', 650, .8);
+        sounds.cafe = loopNoise('bandpass', 520, .5);
+        sounds.wind = loopNoise('bandpass', 380, 1.2);
+
+        const hum = audioCtx.createOscillator(), humGain = audioCtx.createGain(); hum.type = 'sine'; hum.frequency.value = 82; humGain.gain.value = .025; hum.connect(humGain).connect(sounds.cafe.gain); hum.start();
+        const windLfo = audioCtx.createOscillator(), windDepth = audioCtx.createGain(); windLfo.frequency.value = .12; windDepth.gain.value = 170; windLfo.connect(windDepth).connect(sounds.wind.filter.frequency); windLfo.start();
+        const crackle = audioCtx.createBufferSource(), crackFilter = audioCtx.createBiquadFilter(), crackGain = audioCtx.createGain(); crackle.buffer = noiseBuffer(2); crackle.loop = true; crackFilter.type = 'highpass'; crackFilter.frequency.value = 1200; crackGain.gain.value = .09; crackle.connect(crackFilter).connect(crackGain).connect(sounds.fire.gain); crackle.start();
+      }
+      function volumeCurve(value) { return Math.pow(value / 100, 1.8) * .45; }
+      function applyVolumes() {
+        if (!audioCtx) return;
+        $$('.sound-row').forEach(row => {
+          const value = Number($('.volume', row).value), sound = sounds[row.dataset.sound];
+          sound.gain.gain.setTargetAtTime(audioOn ? volumeCurve(value) : 0, audioCtx.currentTime, .12);
+          row.classList.toggle('sound-live', audioOn && value > 0);
+        });
+      }
+      function updateAudioButton() {
+        $('#audioLabel').textContent = audioOn ? 'Mute all' : 'Start audio';
+        $('#audioDot').style.background = audioOn ? 'var(--accent)' : 'rgba(255,255,255,.35)';
+        $('#audioDot').style.boxShadow = audioOn ? '0 0 10px var(--accent)' : 'none';
+      }
+      async function setAmbientAudio(enabled) {
+        if (enabled) {
+          if (!audioCtx) initAudio();
+          if (audioCtx.state === 'suspended') await audioCtx.resume();
+        }
+        audioOn = enabled;
+        applyVolumes(); updateAudioButton();
+      }
+      $('#toggleAudio').addEventListener('click', () => setAmbientAudio(!audioOn));
+      $$('.volume').forEach(slider => {
+        const paint = () => slider.style.setProperty('--fill', `${slider.value}%`); paint();
+        slider.addEventListener('input', () => { paint(); if (!audioCtx) return; applyVolumes(); });
+      });
+
+      let musicProvider = localStorage.getItem('drift-music-provider') || 'youtube';
+      const musicDrawer = $('#musicDrawer'), musicInput = $('#musicUrl'), musicFrame = $('#musicPlayer');
+      function setDrawerCollapsed(collapsed) {
+        musicDrawer.classList.toggle('is-collapsed', collapsed);
+        $('#drawerToggle').setAttribute('aria-expanded', String(!collapsed));
+        localStorage.setItem('drift-music-collapsed', String(collapsed));
+      }
+      $('#drawerToggle').addEventListener('click', () => setDrawerCollapsed(!musicDrawer.classList.contains('is-collapsed')));
+      setDrawerCollapsed(localStorage.getItem('drift-music-collapsed') === 'true');
+
+      function setMusicProvider(provider) {
+        musicProvider = provider;
+        $$('.provider-btn').forEach(button => button.classList.toggle('active', button.dataset.provider === provider));
+        musicInput.placeholder = provider === 'youtube' ? 'Paste a YouTube video or stream…' : 'Paste a Spotify playlist…';
+        $('#musicError').classList.add('hidden');
+        localStorage.setItem('drift-music-provider', provider);
+      }
+      $$('.provider-btn').forEach(button => button.addEventListener('click', () => setMusicProvider(button.dataset.provider)));
+      setMusicProvider(musicProvider === 'spotify' ? 'spotify' : 'youtube');
+
+      function youtubeEmbed(value) {
+        try {
+          const url = new URL(value.trim());
+          const host = url.hostname.toLowerCase().replace(/^www\./, '');
+          let id = '';
+          if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] || '';
+          else if (['youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(host)) {
+            if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
+            else if (/^\/(shorts|live|embed)\//.test(url.pathname)) id = url.pathname.split('/')[2] || '';
+          } else return null;
+          if (!/^[A-Za-z0-9_-]{6,15}$/.test(id)) return null;
+          return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0`;
+        } catch (_) { return null; }
+      }
+      function spotifyEmbed(value) {
+        try {
+          const url = new URL(value.trim());
+          if (url.hostname.toLowerCase() !== 'open.spotify.com') return null;
+          const parts = url.pathname.split('/').filter(Boolean), playlistIndex = parts.indexOf('playlist');
+          const id = playlistIndex >= 0 ? parts[playlistIndex + 1] || '' : '';
+          if (!/^[A-Za-z0-9]{10,40}$/.test(id)) return null;
+          return `https://open.spotify.com/embed/playlist/${id}?utm_source=generator&theme=0`;
+        } catch (_) { return null; }
+      }
+      function unloadMusic() {
+        musicFrame.src = '';
+        $('#musicPlayerWrap').classList.add('hidden');
+        $('#loadedActions').classList.add('hidden'); $('#loadedActions').classList.remove('flex');
+        $('#musicStatus').textContent = 'Choose a source';
+      }
+      $('#musicForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const embed = musicProvider === 'youtube' ? youtubeEmbed(musicInput.value) : spotifyEmbed(musicInput.value);
+        if (!embed) {
+          $('#musicError').textContent = musicProvider === 'youtube' ? 'Paste a valid YouTube video, Short, or live-stream URL.' : 'Paste a valid open.spotify.com playlist URL.';
+          $('#musicError').classList.remove('hidden'); return;
+        }
+        $('#musicError').classList.add('hidden');
+        musicFrame.height = musicProvider === 'youtube' ? '190' : '152';
+        musicFrame.src = embed;
+        $('#musicPlayerWrap').classList.remove('hidden');
+        $('#loadedActions').classList.remove('hidden'); $('#loadedActions').classList.add('flex');
+        $('#loadedProvider').textContent = `${musicProvider === 'youtube' ? 'YouTube' : 'Spotify'} player loaded`;
+        $('#musicStatus').textContent = `${musicProvider === 'youtube' ? 'YouTube' : 'Spotify'} ready`;
+      });
+      $('#unloadMusic').addEventListener('click', unloadMusic);
+
+      function chime() {
+        if (!audioCtx) return;
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(), t = audioCtx.currentTime + i * .12;
+          osc.frequency.value = freq; osc.type = 'sine'; gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(.08, t + .03); gain.gain.exponentialRampToValueAtTime(.001, t + 1.4); osc.connect(gain).connect(audioCtx.destination); osc.start(t); osc.stop(t + 1.5);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
